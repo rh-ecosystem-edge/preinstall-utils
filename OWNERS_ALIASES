@@ -1,0 +1,27 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+aliases:
+  approvers:
+    - avishayt
+    - eranco74
+    - eliorerz
+    - gamli75
+    - ori-amizur
+    - romfreiman
+    - tsorya
+    - carbonin
+    - danielerez
+    - omertuc
+    - paul-maidment
+    - rccrdpccl
+    - jhernand
+    - adriengentil
+    - javipolo
+    - CrystalChun
+    - danmanor
+  emeritus_approvers:
+    - empovit
+    - celebdor
+    - yevgeny-shnaidman
+    - lranjbar
+    - ybettan
