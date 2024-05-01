@@ -11,7 +11,7 @@ lint:
 	golangci-lint run -v
 
 format:
-	@goimports -w -l src/ || /bin/true
+	@goimports -w -l pkg/ || /bin/true
 
 format-check:
 	@test -z $(shell $(MAKE) format)
