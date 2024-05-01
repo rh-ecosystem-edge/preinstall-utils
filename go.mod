@@ -1,4 +1,4 @@
-module github.com/openshift/preinstall-utils
+module github.com/rh-ecosystem-edge/preinstall-utils
 
 go 1.20
 
