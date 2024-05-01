@@ -1,6 +1,7 @@
 package shared_ops
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -252,6 +253,91 @@ var _ = Describe("RemoveAllDMDevicesOnDisk", func() {
 
 		err := d.RemoveAllDMDevicesOnDisk("/dev/sdx")
 		Expect(err).To(HaveOccurred())
+	})
+
+})
+
+var _ = Describe("Device cleanup", func() {
+
+	var (
+		l          = logrus.New()
+		ctrl       *gomock.Controller
+		d          *MockDiskOps
+		cleanup    CleanupDevice
+		device     = "/dev/vda"
+		raidDevice = "/dev/md0"
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		d = NewMockDiskOps(ctrl)
+		cleanup = NewCleanupDevice(l, d)
+
+	})
+
+	It("Should clean up the PV and all volume groups for a disk when asked to do so", func() {
+		mockedVgsResult := []string{
+			"vg1",
+			"vg2",
+		}
+		d.EXPECT().GetVolumeGroupsByDisk(device).Times(1).Return(mockedVgsResult, nil)
+		d.EXPECT().RemoveVG("vg1").Times(1)
+		d.EXPECT().RemoveVG("vg2").Times(1)
+		d.EXPECT().RemoveAllPVsOnDevice(device).Return(nil).Times(1)
+		d.EXPECT().RemoveAllDMDevicesOnDisk(device).Return(nil).Times(1)
+		d.EXPECT().IsRaidMember(device).Times(1).Return(false)
+		d.EXPECT().Wipefs(device).Times(1).Return(nil)
+		err := cleanup.CleanupInstallDevice(device)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("If there is a failure during the removal of a volume group, the PV removal and subsequent volume group removal should proceed anyways", func() {
+		mockedVgsResult := []string{
+			"vg1",
+			"vg2",
+			"vg3",
+		}
+		d.EXPECT().GetVolumeGroupsByDisk(device).Times(1).Return(mockedVgsResult, nil)
+		d.EXPECT().RemoveVG("vg1").Times(1)
+		d.EXPECT().RemoveVG("vg2").Times(1).Return(errors.New(fmt.Sprintf("Failed to remove VG %s, output %s, error %s", "vg2", "some arbitrary output", "some arbitrary error")))
+		d.EXPECT().RemoveVG("vg3").Times(1)
+		d.EXPECT().RemoveAllPVsOnDevice(device).Return(nil).Times(1)
+		d.EXPECT().RemoveAllDMDevicesOnDisk(device).Return(nil).Times(1)
+		d.EXPECT().IsRaidMember(device).Times(1).Return(false)
+		d.EXPECT().Wipefs(device).Times(1).Return(nil)
+		err := cleanup.CleanupInstallDevice(device)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("HostRoleMaster role raid cleanup disk - happy flow", func() {
+		d.EXPECT().GetVolumeGroupsByDisk(device).Return([]string{}, nil).Times(1)
+		d.EXPECT().RemoveAllPVsOnDevice(device).Return(nil).Times(1)
+		d.EXPECT().RemoveAllDMDevicesOnDisk(device).Return(nil).Times(1)
+		d.EXPECT().IsRaidMember(device).Return(true).Times(1)
+		d.EXPECT().GetRaidDevices(device).Return([]string{raidDevice}, nil).Times(1)
+		d.EXPECT().GetVolumeGroupsByDisk(raidDevice).Return([]string{}, nil).Times(1)
+		d.EXPECT().RemoveAllPVsOnDevice(raidDevice).Return(nil).Times(1)
+		d.EXPECT().RemoveAllDMDevicesOnDisk(raidDevice).Return(nil).Times(1)
+		d.EXPECT().CleanRaidMembership(device).Return(nil).Times(1)
+		d.EXPECT().Wipefs(device).Return(nil).Times(1)
+		err := cleanup.CleanupInstallDevice(device)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("HostRoleMaster role raid cleanup disk - failed continues installation", func() {
+		errDummy := fmt.Errorf("dummy1")
+		d.EXPECT().GetVolumeGroupsByDisk(device).Return([]string{}, nil).Times(1)
+		d.EXPECT().RemoveAllPVsOnDevice(device).Return(nil).Times(1)
+		d.EXPECT().RemoveAllDMDevicesOnDisk(device).Return(nil).Times(1)
+		d.EXPECT().IsRaidMember(device).Return(true).Times(1)
+		d.EXPECT().GetRaidDevices(device).Return([]string{raidDevice}, nil).Times(1)
+		d.EXPECT().GetVolumeGroupsByDisk(raidDevice).Return([]string{}, nil).Times(1)
+		d.EXPECT().RemoveAllPVsOnDevice(raidDevice).Return(nil).Times(1)
+		d.EXPECT().RemoveAllDMDevicesOnDisk(raidDevice).Return(nil).Times(1)
+		d.EXPECT().CleanRaidMembership(device).Return(errDummy).Times(1)
+		d.EXPECT().Wipefs(device).Return(nil).Times(1)
+		err := cleanup.CleanupInstallDevice(device)
+		Expect(err).Should(Equal(errDummy))
 	})
 
 })
