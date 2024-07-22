@@ -255,6 +255,37 @@ var _ = Describe("RemoveAllDMDevicesOnDisk", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
+	It("DM devices should be deleted in the correct order when part of thin provisioning", func() {
+		dmsetupLsMatcher := MatcherContainsStringElements{[]string{"ls"}, true}
+		mockedDmsetupLsResult := `test11111-lvol1_tmeta	(253:0)
+test11111-lvol1	(253:2)`
+		execMock.EXPECT().Execute("dmsetup", dmsetupLsMatcher).Times(1).Return(mockedDmsetupLsResult, nil)
+
+		dmsetupDepsMatcher := MatcherContainsStringElements{[]string{"deps", "-o", "devname", "test11111-lvol1"}, true}
+		mockedDmsetupDepsResult := `1 dependencies  : (sdx1)`
+		execMock.EXPECT().Execute("dmsetup", dmsetupDepsMatcher).Times(1).Return(mockedDmsetupDepsResult, nil)
+
+		dmsetupDepsMatcher = MatcherContainsStringElements{[]string{"deps", "-o", "devname", "test11111-lvol1_tdata"}, true}
+		mockedDmsetupDepsResult = `1 dependencies  : (sdx1)`
+		execMock.EXPECT().Execute("dmsetup", dmsetupDepsMatcher).Times(1).Return(mockedDmsetupDepsResult, nil)
+
+		dmsetupDepsMatcher = MatcherContainsStringElements{[]string{"deps", "-o", "devname", "test11111-lvol1_tmeta"}, true}
+		mockedDmsetupDepsResult = `1 dependencies  : (sdx1)`
+		execMock.EXPECT().Execute("dmsetup", dmsetupDepsMatcher).Times(1).Return(mockedDmsetupDepsResult, nil)
+
+		removeMatcher := MatcherContainsStringElements{[]string{"remove", "--retry", "test11111-lvol1"}, true}
+		call1 := execMock.EXPECT().Execute("dmsetup", removeMatcher).Times(1).Return("", nil)
+
+		removeMatcher = MatcherContainsStringElements{[]string{"remove", "--retry", "test11111-lvol1_tdata"}, true}
+		execMock.EXPECT().Execute("dmsetup", removeMatcher).Times(1).Return("", nil).After(call1)
+
+		removeMatcher = MatcherContainsStringElements{[]string{"remove", "--retry", "test11111-lvol1_tmeta"}, true}
+		execMock.EXPECT().Execute("dmsetup", removeMatcher).Times(1).Return("", nil).After(call1)
+
+		err := d.RemoveAllDMDevicesOnDisk("/dev/sdx")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
 })
 
 var _ = Describe("Device cleanup", func() {
