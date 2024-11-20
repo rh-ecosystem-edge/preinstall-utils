@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/thoas/go-funk"
+	"github.com/samber/lo"
 
 	gomock "go.uber.org/mock/gomock"
 )
@@ -33,7 +33,7 @@ func (o MatcherContainsStringElements) Matches(x interface{}) bool {
 	}
 
 	for _, e := range o.Elements {
-		contains := funk.Contains(x, e)
+		contains := lo.Contains(x.([]string), e)
 		if !contains && o.ShouldMatch {
 			return false
 		} else if contains && !o.ShouldMatch {

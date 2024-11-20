@@ -6,10 +6,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	"github.com/thoas/go-funk"
 )
 
 //go:generate mockgen -source=disk_ops.go -package=shared_ops -destination=mock_disk_ops.go
@@ -422,7 +421,7 @@ func (r *diskOps) getBaseDMDevicesForThinProvisioning(dmDevices []string) []stri
 	for _, dmDevice := range dmDevices {
 		if strings.HasSuffix(dmDevice, "_tdata") {
 			baseDevice := strings.Replace(dmDevice, "_tdata", "", 1)
-			if !funk.Contains(baseDevices, baseDevice) {
+			if !lo.Contains(baseDevices, baseDevice) {
 				baseDevices = append(baseDevices, baseDevice)
 			}
 		}
